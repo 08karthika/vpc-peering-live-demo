@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AWS VPC Peering | Interactive Simulation</title>
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--ink:#182230;--muted:#596579;--blue:#2557a7;--line:#dbe3ee;--green:#147d4b;--red:#b42318;--amber:#8a5200}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+header{background:linear-gradient(120deg,#102a56,#2557a7);color:#fff;padding:44px 20px}
+.wrap{max-width:1050px;margin:auto;padding:0 18px}h1{font-size:clamp(2rem,4vw,3rem);line-height:1.1;margin:0 0 14px}header p{max-width:750px;color:#e5edff;margin:0}
+.notice{margin-top:20px;background:#fff4d6;color:#694600;border:1px solid #f0d58b;border-radius:12px;padding:13px 15px;font-weight:600}
+main{padding:28px 0 50px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 4px 16px #152c4b0a;margin-bottom:16px}
+h2{font-size:1.35rem;margin:0 0 12px}h3{font-size:1rem;margin:0 0 8px}.muted{color:var(--muted)}.pill{display:inline-block;border-radius:999px;padding:3px 10px;font-size:.8rem;font-weight:700;background:#e8eef9;color:#214b8b}
+.network{display:grid;grid-template-columns:1fr 1fr;gap:14px}.vpc{border:2px solid #a9bddc;border-radius:13px;padding:14px;background:#f8fbff}.vpc h3{color:#234d8c}.node{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:9px}.arrow{text-align:center;font-weight:700;color:var(--blue);padding:12px}
+button{border:0;border-radius:10px;padding:10px 14px;background:var(--blue);color:#fff;font-weight:700;cursor:pointer;margin:4px 6px 4px 0}button.secondary{background:#e8eef9;color:#234d8c}button:focus{outline:3px solid #8db7ff}
+.result{padding:14px;border-radius:10px;background:#edf8f1;border:1px solid #b7e2c8;margin-top:12px}.result.fail{background:#fff0ef;border-color:#f2b8b5}.result strong{display:block}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:top}th{background:#f3f6fa}code{background:#eef2f7;border-radius:5px;padding:2px 5px}.small{font-size:.9rem}footer{padding:20px;text-align:center;color:var(--muted);border-top:1px solid var(--line)}
+@media(max-width:600px){.network{grid-template-columns:1fr}header{padding:32px 0}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <span class="pill">Student Project · Interactive Demo</span>
+  <h1>AWS VPC Peering</h1>
+  <p>An interactive, local simulation of two private networks, their route tables, scoped security rules, and expected connectivity before and after peering.</p>
+  <div class="notice">Simulation only: this website does not create AWS resources or send real network packets. All connectivity outcomes shown here are illustrative.</div>
+</div></header>
+<main class="wrap">
+<section class="card">
+  <h2>1. Planned network architecture</h2>
+  <div class="network">
+    <div class="vpc"><h3>VPC A · 10.10.0.0/16</h3>
+      <div class="node"><strong>Public subnet</strong><br><code>10.10.1.0/24</code><br>Bastion · <code>10.10.1.10</code><br><span class="muted small">Public IPv4 planned</span></div>
+      <div class="node"><strong>Private subnet</strong><br><code>10.10.2.0/24</code><br>App-A · <code>10.10.2.10</code><br><span class="muted small">No public IP planned</span></div>
+    </div>
+    <div class="vpc"><h3>VPC B · 10.20.0.0/16</h3>
+      <div class="node"><strong>Private subnet</strong><br><code>10.20.1.0/24</code><br>App-B · <code>10.20.1.10</code><br><span class="muted small">No public IP planned</span></div>
+      <div class="node"><strong>Peering connection</strong><br><code>ewb-a-b-peer</code><br><span class="muted small">Simulated route target: pcx-simulated</span></div>
+    </div>
+  </div>
+  <div class="arrow">App-A ⇄ VPC Peering ⇄ App-B</div>
+  <p class="muted small">The CIDR ranges are non-overlapping. A real AWS deployment would need the peering connection to be active and route tables configured in both directions.</p>
+</section>
+<section class="card">
+  <h2>2. Interactive connectivity test</h2>
+  <p class="muted">Choose a scenario to see the expected result in this simulation.</p>
+  <button onclick="runTest('before')">Before peering</button>
+  <button onclick="runTest('success')">After peering + routes</button>
+  <button onclick="runTest('blocked')">ICMP rule disabled</button>
+  <button onclick="runTest('restored')">ICMP rule restored</button>
+  <div id="testResult" class="result" aria-live="polite"><strong>Ready to test</strong>Select a scenario above.</div>
+</section>
+<section class="card">
+  <h2>3. Route-table model</h2>
+  <div class="table-wrap"><table>
+  <thead><tr><th>Route table</th><th>Destination</th><th>Target</th></tr></thead>
+  <tbody>
+  <tr><td><code>ewb-rt-a-public</code></td><td>10.10.0.0/16</td><td>local</td></tr>
+  <tr><td><code>ewb-rt-a-public</code></td><td>0.0.0.0/0</td><td>Internet Gateway (planned)</td></tr>
+  <tr><td><code>ewb-rt-a-public</code></td><td>10.20.0.0/16</td><td>pcx-simulated</td></tr>
+  <tr><td><code>ewb-rt-a-private</code></td><td>10.10.0.0/16</td><td>local</td></tr>
+  <tr><td><code>ewb-rt-a-private</code></td><td>10.20.0.0/16</td><td>pcx-simulated</td></tr>
+  <tr><td><code>ewb-rt-b-private</code></td><td>10.20.0.0/16</td><td>local</td></tr>
+  <tr><td><code>ewb-rt-b-private</code></td><td>10.10.0.0/16</td><td>pcx-simulated</td></tr>
+  </tbody></table></div>
+  <p class="muted small">These are planned route entries. <code>pcx-simulated</code> is a placeholder, not an AWS peering ID.</p>
+</section>
+<section class="card">
+  <h2>4. Security-group rule model</h2>
+  <div class="table-wrap"><table>
+  <thead><tr><th>Security group</th><th>Inbound rule</th><th>Source</th></tr></thead>
+  <tbody>
+  <tr><td><code>ewb-sg-bastion</code></td><td>SSH / TCP 22</td><td>Your public IPv4 /32 (placeholder)</td></tr>
+  <tr><td><code>ewb-sg-app-a</code></td><td>SSH / TCP 22</td><td>10.10.1.10/32</td></tr>
+  <tr><td><code>ewb-sg-app-a</code></td><td>ICMP Echo Request</td><td>10.20.1.10/32</td></tr>
+  <tr><td><code>ewb-sg-app-b</code></td><td>SSH / TCP 22</td><td>10.10.1.10/32</td></tr>
+  <tr><td><code>ewb-sg-app-b</code></td><td>ICMP Echo Request</td><td>10.10.2.10/32</td></tr>
+  </tbody></table></div>
+  <p class="muted small">Rules are shown for learning only; this site does not configure a firewall. In a real deployment, never expose SSH to 0.0.0.0/0.</p>
+</section>
+<section class="card">
+  <h2>5. Resources in the planned design</h2>
+  <div class="grid">
+    <div><h3>VPCs and subnets</h3><p>2 VPCs · 3 subnets</p></div>
+    <div><h3>Compute</h3><p>1 bastion · 2 private application instances</p></div>
+    <div><h3>Networking</h3><p>1 peering connection · 3 route tables · 1 Internet Gateway planned</p></div>
+    <div><h3>Security</h3><p>3 security groups with restricted inbound rules</p></div>
+  </div>
+</section>
+<section class="card">
+  <h2>6. Conclusion</h2>
+  <p>This simulation illustrates how non-overlapping CIDR ranges, bidirectional routes, and security-group rules relate to private communication between two VPCs. Actual AWS connectivity would need to be tested in an authorized AWS environment.</p>
+</section>
+</main>
+<footer>Student demonstration · No AWS resources deployed · No cloud charges incurred by this static website itself</footer>
+<script>
+function runTest(which){
+ const el=document.getElementById('testResult');
+ const scenarios={
+ before:{ok:false,title:'Before peering: expected failure',msg:'The simulated path is unavailable because peering/routes are not configured.'},
+ success:{ok:true,title:'After peering + routes: expected success',msg:'The model assumes an active peering connection, forward and return routes, and allowed ICMP traffic. Simulated result: 4 replies, 0% packet loss.'},
+ blocked:{ok:false,title:'ICMP rule disabled: expected failure',msg:'The model represents the inbound ICMP rule being disabled. Simulated result: request timed out.'},
+ restored:{ok:true,title:'ICMP rule restored: expected recovery',msg:'The model represents the inbound ICMP rule being restored. Simulated result: 4 replies, 0% packet loss.'}
+ };
+ const s=scenarios[which]; el.className='result'+(s.ok?'':' fail'); el.innerHTML='<strong>'+s.title+'</strong>'+s.msg+'<p class="small"><em>Illustrative simulation only; no real ping packets were sent.</em></p>';
+}
+</script>
+</body>
+</html>
